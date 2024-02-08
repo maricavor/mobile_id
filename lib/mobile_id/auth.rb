@@ -3,25 +3,12 @@
 module MobileId
   class Auth
     # API documentation https://github.com/SK-EID/MID
-    LIVE_URL = 'https://mid.sk.ee/mid-api'
-    TEST_URL = 'https://tsp.demo.sk.ee/mid-api'
+    attr_accessor :hash, :state, :result, :user_cert, :doc
 
-    TEST_UUID  = '00000000-0000-0000-0000-000000000000'
-    TEST_NAME  = 'DEMO'
-
-    attr_accessor :url, :uuid, :name, :doc, :hash, :user_cert, :live
-
-    def initialize(live:, uuid: nil, name: nil, doc: nil)
-      self.url = live == true ? LIVE_URL : TEST_URL
-      self.uuid = live == true ? uuid : TEST_UUID
-      self.name = live == true ? name : TEST_NAME
-      self.live = live
-      init_doc(doc || SecureRandom.hex(40))
-    end
-
-    def init_doc(doc)
-      self.doc = doc
-      self.hash = Digest::SHA256.digest(doc)
+    def initialize(doc = SecureRandom.hex(40))
+      @config = MobileId.config
+      @doc = doc
+      @hash = Digest::SHA256.digest(doc)
     end
 
     def authenticate!(phone:, personal_code:, phone_calling_code: nil, language: nil, display_text: nil)
@@ -46,11 +33,11 @@ module MobileId
         },
         query: {},
         body: {
-          relyingPartyUUID: uuid,
-          relyingPartyName: name,
+          relyingPartyUUID: @config.relying_party_uuid,
+          relyingPartyName: @config.relying_party_name,
           phoneNumber: full_phone.to_s.strip,
           nationalIdentityNumber: personal_code.to_s.strip,
-          hash: Base64.strict_encode64(hash),
+          hash: Base64.strict_encode64(@hash),
           hashType: 'SHA256',
           language: language,
           displayText: display_text,
@@ -58,14 +45,14 @@ module MobileId
         }.to_json
       }
 
-      response = HTTParty.post("#{url}/authentication", options)
+      response = HTTParty.post("#{@config.host_url}/authentication", options)
       raise Error, "#{I18n.t('mobile_id.some_error')} #{response}" unless response.code == 200
 
       ActiveSupport::HashWithIndifferentAccess.new(
         session_id: response['sessionID'],
         phone: phone,
         phone_calling_code: phone_calling_code,
-        doc: doc
+        doc: @doc
       )
     end
 
@@ -78,12 +65,15 @@ module MobileId
         last_name: last_name,
         phone: auth['phone'],
         phone_calling_code: auth['phone_calling_code'],
-        auth_provider: 'mobileid' # User::MOBILEID
+        country: country,
+        auth_provider: 'mobileid', # User::MOBILEID
+        state: state,
+        result: result
       )
     end
 
     def session_request(session_id)
-      response = HTTParty.get(url + "/authentication/session/#{session_id}")
+      response = HTTParty.get(@config.host_url + "/authentication/session/#{session_id}")
       raise Error, "#{I18n.t('mobile_id.some_error')} #{response.code} #{response}" if response.code != 200
 
       response
@@ -105,57 +95,57 @@ module MobileId
         message =
           case response['result']
           when 'TIMEOUT'
-            I18n.t('mobile_id.timeout')
+            raise MidSessionTimeoutError, I18n.t('mobile_id.timeout')
           when 'NOT_MID_CLIENT'
-            I18n.t('mobile_id.user_is_not_mobile_id_client')
+            raise MidNotMidClientError, I18n.t('mobile_id.user_is_not_mobile_id_client')
           when 'USER_CANCELLED'
-            I18n.t('mobile_id.user_cancelled')
+            raise MidUserCancellationError, I18n.t('mobile_id.user_cancelled')
           when 'SIGNATURE_HASH_MISMATCH'
-            I18n.t('mobile_id.signature_hash_mismatch')
+            raise MidInvalidUserConfigurationError, I18n.t('mobile_id.signature_hash_mismatch')
           when 'PHONE_ABSENT'
-            I18n.t('mobile_id.phone_absent')
+            raise MidPhoneNotAvailableError, I18n.t('mobile_id.phone_absent')
           when 'DELIVERY_ERROR'
-            I18n.t('mobile_id.delivery_error')
+            raise MidDeliveryError, I18n.t('mobile_id.delivery_error')
           when 'SIM_ERROR'
-            I18n.t('mobile_id.sim_error')
+            raise MidSimError, I18n.t('mobile_id.sim_error')
           end
-        raise Error, message
       end
 
-      @user_cert = MobileId::Cert.new(response['cert'], live: live)
-      @user_cert.verify_signature!(response['signature']['value'], doc)
-      self.user_cert = @user_cert
+      @user_cert = MobileId::Cert.new(response['cert'])
+      @user_cert.verify_signature!(response['signature']['value'], @doc)
+      @result = response['result']
+      @state = response['state']
     end
 
     def verification_code
-      binary = hash.to_s.unpack1('B*')
+      binary = @hash.to_s.unpack1('B*')
       '%04d' % (binary[0...6] + binary[-7..]).to_i(2)
     end
 
     def given_name
-      user_cert.given_name
+      @user_cert.given_name
     end
     alias first_name given_name
 
     def surname
-      user_cert.surname
+      @user_cert.surname
     end
     alias last_name surname
 
     def country
-      user_cert.country
+      @user_cert.country
     end
 
     def common_name
-      user_cert.common_name
+      @user_cert.common_name
     end
 
     def organizational_unit
-      user_cert.organizational_unit
+      @user_cert.organizational_unit
     end
 
     def serial_number
-      user_cert.serial_number
+      @user_cert.serial_number
     end
     alias personal_code serial_number
   end
