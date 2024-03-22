@@ -5,6 +5,8 @@ module MobileId
     # API documentation https://github.com/SK-EID/MID
     attr_accessor :hash, :state, :result, :user_cert, :doc
 
+    GSM_7_CHARACTERS = "@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞ^{}[~]|€ÆæßÉ!\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà \r\n\\"
+
     def initialize(doc = SecureRandom.hex(40))
       @config = MobileId.config
       @doc = doc
@@ -41,12 +43,12 @@ module MobileId
           hashType: 'SHA256',
           language: language,
           displayText: display_text,
-          displayTextFormat: 'GSM-7' # or "UCS-2”
+          displayTextFormat: contains_non_gsm7_characters?(display_text) ? 'UCS-2' : 'GSM-7'
         }.to_json
       }
 
       response = HTTParty.post("#{@config.host_url}/authentication", options)
-      raise Error, "#{I18n.t('mobile_id.some_error')} #{response}" unless response.code == 200
+      raise Error, "#{I18n.t('mobile_id.some_error')}: #{response.response.class} #{response.code}" unless response.code == 200
 
       ActiveSupport::HashWithIndifferentAccess.new(
         session_id: response['sessionID'],
@@ -54,6 +56,8 @@ module MobileId
         phone_calling_code: phone_calling_code,
         doc: @doc
       )
+    rescue Net::OpenTimeout => e
+      raise Error, "#{I18n.t('mobile_id.some_error')}: #{e}"
     end
 
     def verify!(auth)
@@ -74,7 +78,7 @@ module MobileId
 
     def session_request(session_id)
       response = HTTParty.get(@config.host_url + "/authentication/session/#{session_id}")
-      raise Error, "#{I18n.t('mobile_id.some_error')} #{response.code} #{response}" if response.code != 200
+      raise Error, "#{I18n.t('mobile_id.some_error')}: #{response.response.class} #{response.code}" if response.code != 200
 
       response
     end
@@ -89,7 +93,7 @@ module MobileId
 
         sleep 1
       end
-      raise Error, "#{I18n.t('mobile_id.some_error')} #{response.code} #{response}" if response['state'] != 'COMPLETE'
+      raise Error, "#{I18n.t('mobile_id.some_error')}: #{response.response.class} #{response.code}" if response['state'] != 'COMPLETE'
 
       if response['result'] != 'OK'
         message =
@@ -148,5 +152,11 @@ module MobileId
       @user_cert.serial_number
     end
     alias personal_code serial_number
+
+    private
+
+    def contains_non_gsm7_characters?(service_name)
+      service_name.chars.any? { |char| !GSM_7_CHARACTERS.include?(char) }
+    end
   end
 end
