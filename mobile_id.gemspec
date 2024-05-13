@@ -5,13 +5,13 @@ Gem::Specification.new do |s|
   s.version     = '0.0.14'
   s.summary     = 'Estonia and Lithuania Mobile ID authentication'
   s.description = 'Ruby client for Estonia and Lithuania Mobile ID authentication'
-  s.authors     = ['Priit Tark']
-  s.email       = 'priit@domify.io'
+  s.authors     = ['Priit Tark', 'Sergei Tsõganov']
+  s.email       = ['priit@domify.io', 'sergei.tsoganov@internet.ee']
   s.files       = Dir.glob('{lib}/**/*') + %w[MIT-LICENSE README.md CHANGELOG.md]
   s.homepage    = 'https://github.com/domify/mobile_id'
   s.license     = 'MIT'
   s.add_runtime_dependency 'activesupport'
-  s.add_runtime_dependency 'httparty'
+  s.add_runtime_dependency 'rest-client'
   s.add_runtime_dependency 'i18n'
   s.add_runtime_dependency 'openssl', '>= 2.2.0'
   s.add_development_dependency 'pry'

@@ -2,7 +2,6 @@
 
 require 'securerandom'
 require 'digest'
-require 'httparty'
 require 'active_support/core_ext/hash/indifferent_access'
 require 'i18n'
 

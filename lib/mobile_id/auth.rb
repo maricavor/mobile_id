@@ -29,34 +29,31 @@ module MobileId
           'ENG'
         end
 
-      options = {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        query: {},
-        body: {
-          relyingPartyUUID: @config.relying_party_uuid,
-          relyingPartyName: @config.relying_party_name,
-          phoneNumber: full_phone.to_s.strip,
-          nationalIdentityNumber: personal_code.to_s.strip,
-          hash: Base64.strict_encode64(@hash),
-          hashType: 'SHA256',
-          language: language,
-          displayText: display_text,
-          displayTextFormat: contains_non_gsm7_characters?(display_text) ? 'UCS-2' : 'GSM-7'
-        }.to_json
+      payload = {
+        relyingPartyUUID: @config.relying_party_uuid,
+        relyingPartyName: @config.relying_party_name,
+        phoneNumber: full_phone.to_s.strip,
+        nationalIdentityNumber: personal_code.to_s.strip,
+        hash: Base64.strict_encode64(@hash),
+        hashType: 'SHA256',
+        language: language,
+        displayText: display_text,
+        displayTextFormat: contains_non_gsm7_characters?(display_text) ? 'UCS-2' : 'GSM-7'
       }
 
-      response = HTTParty.post("#{@config.host_url}/authentication", options)
+      response = RestClient::Request.execute(post_request_attrs("#{@config.host_url}/authentication", payload))
+
       raise Error, "#{I18n.t('mobile_id.some_error')}: #{response.response.class} #{response.code}" unless response.code == 200
 
+      parsed_response = JSON.parse(response.body)
+
       ActiveSupport::HashWithIndifferentAccess.new(
-        session_id: response['sessionID'],
+        session_id: parsed_response['sessionID'],
         phone: phone,
         phone_calling_code: phone_calling_code,
         doc: @doc
       )
-    rescue Net::OpenTimeout => e
+    rescue RestClient::RequestFailed, RestClient::SSLCertificateNotVerified => e
       raise Error, "#{I18n.t('mobile_id.some_error')}: #{e}"
     end
 
@@ -77,10 +74,11 @@ module MobileId
     end
 
     def session_request(session_id)
-      response = HTTParty.get(@config.host_url + "/authentication/session/#{session_id}")
+      response = RestClient::Request.execute(get_request_attrs(@config.host_url + "/authentication/session/#{session_id}"))
+
       raise Error, "#{I18n.t('mobile_id.some_error')}: #{response.response.class} #{response.code}" if response.code != 200
 
-      response
+      JSON.parse(response.body)
     end
 
     def long_poll!(session_id:, doc:)
@@ -157,6 +155,35 @@ module MobileId
 
     def contains_non_gsm7_characters?(service_name)
       service_name.chars.any? { |char| !GSM_7_CHARACTERS.include?(char) }
+    end
+
+    def default_attrs
+      attrs = {
+        headers: { content_type: :json, accept: :json },
+        timeout: 10
+      }
+      attrs.merge!(ssl_config) if @config.tls_config
+
+      attrs
+    end
+
+    def get_request_attrs(url)
+      default_attrs.merge(method: :get, url: url)
+    end
+
+    def post_request_attrs(url, params)
+      default_attrs.merge(method: :post, url: url, payload: JSON.generate(params))
+    end
+
+    def ssl_config
+      config = {
+        ssl_version: @config.tls_config[:default_protocol],
+        verify_ssl: OpenSSL::SSL::VERIFY_PEER,
+        ssl_ciphers: @config.tls_config[:enabled_cipher_suites]
+      }
+      config.merge!(ssl_ca_file: @config.tls_config[:ca_file]) if @config.tls_config[:ca_file]
+
+      config
     end
   end
 end
