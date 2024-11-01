@@ -3,7 +3,7 @@
 module MobileId
   class Auth
     # API documentation https://github.com/SK-EID/MID
-    attr_accessor :hash, :state, :result, :user_cert, :doc
+    attr_accessor :config, :hash, :state, :result, :user_cert, :doc
 
     GSM_7_CHARACTERS = "@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞ^{}[~]|€ÆæßÉ!\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà \r\n\\"
 
@@ -69,16 +69,16 @@ module MobileId
         country: country,
         auth_provider: 'mobileid', # User::MOBILEID
         state: state,
-        result: result
+        result: result,
+        expiration_time: expiration_time
       )
     end
 
     def session_request(session_id)
       response = RestClient::Request.execute(get_request_attrs(@config.host_url + "/authentication/session/#{session_id}"))
-
-      raise Error, "#{I18n.t('mobile_id.some_error')}: #{response.response.class} #{response.code}" if response.code != 200
-
       JSON.parse(response.body)
+    rescue RestClient::RequestFailed => e
+      raise Error, "#{I18n.t('mobile_id.some_error')}: #{e}"
     end
 
     def long_poll!(session_id:, doc:)
@@ -145,6 +145,11 @@ module MobileId
     def organizational_unit
       @user_cert.organizational_unit
     end
+
+    def not_after
+      @user_cert.cert.not_after
+    end
+    alias expiration_time not_after
 
     def serial_number
       @user_cert.serial_number

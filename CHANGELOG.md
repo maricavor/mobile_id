@@ -1,3 +1,7 @@
+Release 0.0.16
+* Added expiration_time of the certificate
+* Corrected tests
+
 Release 0.0.15
 * Restored older Ruby 2.7 support
 
