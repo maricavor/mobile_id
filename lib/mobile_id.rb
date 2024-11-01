@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require 'logger'
 require 'securerandom'
 require 'digest'
 require 'active_support/core_ext/hash/indifferent_access'
 require 'i18n'
+require 'rest-client'
+require 'base64'
+require 'json'
 
 require 'mobile_id/configuration'
 

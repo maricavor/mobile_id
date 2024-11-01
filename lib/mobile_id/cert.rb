@@ -116,9 +116,9 @@ module MobileId
 
     def test_store_certificates
       [
-        File.join(root_path, 'TEST_of_EE_Certification_Centre_Root_CA.pem.crt'),
-        File.join(root_path, 'TEST_of_ESTEID-SK_2015.pem.crt')
-      ]
+        load_certificate('TEST_of_EE_Certification_Centre_Root_CA.pem.crt'),
+        load_certificate('TEST_of_ESTEID-SK_2015.pem.crt')
+      ].compact
     end
 
     def root_path
@@ -133,6 +133,15 @@ module MobileId
       end
     rescue OpenSSL::X509::StoreError => e
       raise MidValidationError, "Error building certificate store: #{e.message}"
+    end
+
+    def load_certificate(filename)
+      path = File.join(root_path, filename)
+      return unless File.exist?(path)
+
+      OpenSSL::X509::Certificate.new(File.read(path))
+    rescue OpenSSL::X509::CertificateError
+      nil
     end
   end
 end
