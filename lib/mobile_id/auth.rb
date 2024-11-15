@@ -41,7 +41,10 @@ module MobileId
         displayTextFormat: contains_non_gsm7_characters?(display_text) ? 'UCS-2' : 'GSM-7'
       }
 
-      response = RestClient::Request.execute(post_request_attrs("#{@config.host_url}/authentication", payload))
+      request_attrs = post_request_attrs("#{@config.host_url}/authentication", payload)
+      @config.logger.debug("Executing request with attributes: #{request_attrs}")
+      response = RestClient::Request.execute(request_attrs)
+      @config.logger.debug("Received response: #{response.body}")
 
       raise Error, "#{I18n.t('mobile_id.some_error')}: #{response.response.class} #{response.code}" unless response.code == 200
 
@@ -75,7 +78,10 @@ module MobileId
     end
 
     def session_request(session_id)
-      response = RestClient::Request.execute(get_request_attrs(@config.host_url + "/authentication/session/#{session_id}"))
+      request_attrs = get_request_attrs(@config.host_url + "/authentication/session/#{session_id}")
+      @config.logger.debug("Executing request with attributes: #{request_attrs}")
+      response = RestClient::Request.execute(request_attrs)
+      @config.logger.debug("Received response: #{response.body}")
       JSON.parse(response.body)
     rescue RestClient::RequestFailed => e
       raise Error, "#{I18n.t('mobile_id.some_error')}: #{e}"

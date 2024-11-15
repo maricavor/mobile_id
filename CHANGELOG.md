@@ -1,3 +1,6 @@
+Release 0.0.17
+* Added loggin messages for http requests for debugging
+
 Release 0.0.16
 * Added expiration_time of the certificate
 * Corrected tests

@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name        = 'mobile_id'
-  s.version     = '0.0.16'
+  s.version     = '0.0.17'
   s.summary     = 'Estonia and Lithuania Mobile ID authentication'
   s.description = 'Ruby client for Estonia and Lithuania Mobile ID authentication'
   s.authors     = ['Priit Tark', 'Sergei Tsõganov']
