@@ -1,3 +1,6 @@
+Release 0.0.18
+* Corrected error logging for truststore errors
+
 Release 0.0.17
 * Added loggin messages for http requests for debugging
 

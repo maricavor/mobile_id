@@ -111,7 +111,7 @@ module MobileId
     def pkcs12_truststore
       OpenSSL::PKCS12.new(File.binread(MobileId.config.truststore_path), MobileId.config.truststore_password)
     rescue OpenSSL::PKCS12::PKCS12Error => e
-      raise MidValidationError, "File at #{path} is not a valid PKCS12 file: #{e.message}"
+      raise MidValidationError, "File at #{MobileId.config.truststore_path} is not a valid PKCS12 file: #{e.message}"
     end
 
     def test_store_certificates
