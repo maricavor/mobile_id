@@ -1,3 +1,6 @@
+Release 0.0.19
+* Increased RestClient timeout to 20 sec
+
 Release 0.0.18
 * Corrected error logging for truststore errors
 

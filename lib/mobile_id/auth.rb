@@ -171,7 +171,7 @@ module MobileId
     def default_attrs
       attrs = {
         headers: { content_type: :json, accept: :json },
-        timeout: 10
+        timeout: 20
       }
       attrs.merge!(ssl_config) if @config.tls_config
 
